@@ -1,8 +1,16 @@
 name: Sync
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '0 4 */6 * *'
+    inputs:
+      mode:
+        description: '模式'
+        required: true
+        default: 'Save'
+        type: choice
+        options:
+        - Save
+        - seele
+        - Helper
     
 jobs:
   Sync:
@@ -28,14 +36,10 @@ jobs:
       run: |
         {{ secrets.BAN }}
 
-    - name: Sync helper
+    - name: Sync
       continue-on-error: true
       run: |
-        rclone --config=rclone.conf sync "Helper:" "BackupHelper:" --log-level INFO
-
-    # - name: Sync Save
-    #   run: |
-    #     rclone --config=rclone.conf sync "Save:" "BackupSave:" --log-level INFO
+        rclone --config=rclone.conf sync "${{ inputs.mode }}:" "Backup${{ inputs.mode }}:" --log-level INFO
 
     - name: Clean
       run: |
