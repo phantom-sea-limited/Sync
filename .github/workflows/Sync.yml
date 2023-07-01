@@ -26,7 +26,7 @@ jobs:
     # https://docs.github.com/zh/actions/using-workflows/workflow-commands-for-github-actions#masking-a-value-in-a-log
     - name: Ban
       run: |
-        {{ secrets.BAN }}
+        ${{ secrets.BAN }}
 
     - name: Sync helper
       continue-on-error: true
