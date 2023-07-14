@@ -1,0 +1,63 @@
+name: Sync To Cloud
+on:
+  workflow_dispatch:
+    inputs:
+      download:
+        description: '下载路径'
+        required: true
+        type: string
+      upload:
+        description: '上传路径'
+        required: true
+        type: string
+        default: /Comic/
+    
+jobs:
+  Sync:
+    runs-on: ubuntu-latest
+        
+    steps:                          
+    - name: checkout main
+      uses: actions/checkout@v2
+      with:
+        ref: main
+        fetch-depth: full
+               
+    - name: Prepare
+      run: |
+        sudo apt update
+        sudo apt install -y p7zip p7zip-full p7zip-rar unrar
+        pip install pycryptodome
+        python C.py --public "${{ secrets.PUBLIC }}" --private "${{ secrets.PRIVATE }}" --mode jiemi --type rclone
+        sudo -v ; curl https://rclone.org/install.sh | sudo bash
+        sudo curl -fsSL http://file.tickstep.com/apt/pgp | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/tickstep-packages-archive-keyring.gpg > /dev/null && echo "deb [signed-by=/etc/apt/trusted.gpg.d/tickstep-packages-archive-keyring.gpg arch=amd64,arm64] http://file.tickstep.com/apt cloudpan189-go main" | sudo tee /etc/apt/sources.list.d/tickstep-cloudpan189-go.list > /dev/null && sudo apt-get update && sudo apt-get install -y cloudpan189-go
+ 
+        
+    # https://docs.github.com/zh/actions/using-workflows/workflow-commands-for-github-actions#masking-a-value-in-a-log
+    - name: Ban
+      run: |
+        ${{ secrets.BAN }}
+
+    - name: Sync to Local
+      continue-on-error: true
+      run: |
+        rclone --config=rclone.conf copyto 'Save:${{ inputs.download }}' 'local:tmp' --log-level INFO
+
+    - name: Local to Cloud
+      run: |
+        cloudpan189-go login ${{ secrets.login }}
+        cloudpan189-go u ./tmp ${{ inputs.upload }} -p 2 --ow
+
+    - name: Clean
+      run: |
+        python C.py --public "${{ secrets.PUBLIC }}" --private "${{ secrets.PRIVATE }}" --mode jiami --type rclone
+
+    - name: Push
+      run: |
+        git init
+        git config user.name Rcrwrate
+        git config user.email 46920034+Rcrwrate@users.noreply.github.com
+        git add .
+        git commit -m "Sync update ${{ github.run_id }}"
+        git filter-branch --force --index-filter 'if [ "$GIT_COMMIT" != "$(git rev-parse HEAD)" ]; then git rm --cached --ignore-unmatch rclone.conf; fi' --prune-empty --tag-name-filter cat -- --all
+        git push origin --force --all
